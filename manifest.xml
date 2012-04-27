@@ -14,8 +14,8 @@
  <depend package="geometry_msgs"/>
  <depend package="visualization_msgs"/>
  <depend package="actionlib"/>
+ <!--depend package="nav_core"/ --> <!-- for recovery behavior -->
  <depend package="tue_nav_core"/>
- <depend package="nav_core"/>
  <depend package="pluginlib"/>
  <depend package="tue_costmap_2d"/>
  <depend package="tf"/>

@@ -47,7 +47,7 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
     				planner_(NULL),
     				bgp_loader_("tue_nav_core", "tue_nav_core::TueBaseGlobalPlanner"),
     				blp_loader_("tue_nav_core", "tue_nav_core::TueBaseLocalPlanner"),
-    				recovery_loader_("nav_core", "nav_core::RecoveryBehavior"), // TODO: here we should also make a TUE implementation
+    				//recovery_loader_("nav_core", "nav_core::RecoveryBehavior"), // TODO: here we should also make a TUE implementation
     				planner_plan_(NULL),
     				latest_plan_(NULL),
     				controller_plan_(NULL),
@@ -115,13 +115,13 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
 	///////////// GLOBAL COSTMAPS /////////////////
 	///////////////////////////////////////////////
 	//
-	global_costmaps.push_back(new costmap_2d::Costmap2DROS("global_costmap_kinect", tf_));
-	global_costmaps.push_back(new costmap_2d::Costmap2DROS("global_costmap_laser", tf_));
+	global_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("global_costmap_kinect", tf_));
+	global_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("global_costmap_laser", tf_));
 
 	////////////////////////////////////////////////////////
 	///////////// INITIALIZE THEM TO PAUSE /////////////////
 	///////////////////////////////////////////////////////
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
 		(*it)->pause();
 	}
 
@@ -153,13 +153,13 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
 	///////////// LOCAL COSTMAPS /////////////////
 	//////////////////////////////////////////////
 	//
-	local_costmaps.push_back(new costmap_2d::Costmap2DROS("local_costmap_kinect", tf_));
-	local_costmaps.push_back(new costmap_2d::Costmap2DROS("local_costmap_laser", tf_));
+	local_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("local_costmap_kinect", tf_));
+	local_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("local_costmap_laser", tf_));
 
 	////////////////////////////////////////////////////////
 	///////////// INITIALIZE THEM TO PAUSE /////////////////
 	///////////////////////////////////////////////////////
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
 		(*it)->pause();
 	}
 
@@ -188,11 +188,11 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
 	}
 
 	// Start actively updating costmaps based on sensor data
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
 		(*it)->start();
 	}
 
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
 		(*it)->start();
 	}
 
@@ -206,31 +206,33 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
 	clear_costmaps_srv_ = private_nh.advertiseService("clear_costmaps", &MoveBase::clearCostmapsService, this);
 
 	//initially clear any unknown space around the robot
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
 		(*it)->clearNonLethalWindow(circumscribed_radius_ * 4, circumscribed_radius_ * 4);
 	}
 
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
 		(*it)->clearNonLethalWindow(circumscribed_radius_ * 4, circumscribed_radius_ * 4);
 	}
 
 	//if we shutdown our costmaps when we're deactivated... we'll do that now
 	if(shutdown_costmaps_){
 		ROS_DEBUG_NAMED("move_base","Stopping costmaps initially");
-		for(vector<costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
+		for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
 			(*it)->stop();
 		}
 
-		for(vector<costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
+		for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
 			(*it)->stop();
 		}
 
 	}
 
 	//load any user specified recovery behaviors, and if that fails load the defaults
+	/*
 	if(!loadRecoveryBehaviors(private_nh)){
 		loadDefaultRecoveryBehaviors();
 	}
+	*/
 
 	//initially, we'll need to make a plan
 	state_ = PLANNING;
@@ -376,7 +378,7 @@ void MoveBase::goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal){
 
 void MoveBase::clearCostmapWindows(double size_x, double size_y){
 
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
 		//clear the planner's costmap
 
 		tf::Stamped<tf::Pose> global_pose;
@@ -403,10 +405,10 @@ void MoveBase::clearCostmapWindows(double size_x, double size_y){
 		pt.y = y + size_y / 2;
 		clear_poly.push_back(pt);
 
-		(*it)->setConvexPolygonCost(clear_poly, costmap_2d::FREE_SPACE);
+		(*it)->setConvexPolygonCost(clear_poly, tue_costmap_2d::FREE_SPACE);
 	}
 
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
 		//clear the controller's costmap
 
 		tf::Stamped<tf::Pose> global_pose;
@@ -433,17 +435,17 @@ void MoveBase::clearCostmapWindows(double size_x, double size_y){
 		pt.y = y + size_y / 2;
 		clear_poly.push_back(pt);
 
-		(*it)->setConvexPolygonCost(clear_poly, costmap_2d::FREE_SPACE);
+		(*it)->setConvexPolygonCost(clear_poly, tue_costmap_2d::FREE_SPACE);
 	}
 }
 
 bool MoveBase::clearUnknownService(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp){
 	//clear any unknown space around the robot the same as we do on initialization
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
 		(*it)->clearNonLethalWindow(circumscribed_radius_ * 4, circumscribed_radius_ * 4);
 	}
 
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
 		(*it)->clearNonLethalWindow(circumscribed_radius_ * 4, circumscribed_radius_ * 4);
 	}
 
@@ -452,11 +454,11 @@ bool MoveBase::clearUnknownService(std_srvs::Empty::Request &req, std_srvs::Empt
 
 bool MoveBase::clearCostmapsService(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp){
 	//clear the costmaps
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
 		(*it)->resetMapOutsideWindow(0,0);
 	}
 
-	for(vector<costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
+	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
 		(*it)->resetMapOutsideWindow(0,0);
 	}
 
@@ -538,7 +540,7 @@ bool MoveBase::planService(nav_msgs::GetPlan::Request &req, nav_msgs::GetPlan::R
 }
 
 MoveBase::~MoveBase(){
-	recovery_behaviors_.clear();
+	//recovery_behaviors_.clear();
 
 	delete dsrv_;
 
@@ -551,11 +553,11 @@ MoveBase::~MoveBase(){
 	if(tc_ != NULL)
 		delete tc_;
 
-	for(std::vector<costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
+	for(std::vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
 		delete *it;
 	}
 
-	for(std::vector<costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
+	for(std::vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
 		delete *it;;
 	}
 
@@ -760,11 +762,11 @@ void MoveBase::executeCb(const move_base_msgs::MoveBaseGoalConstPtr& move_base_g
 	if(shutdown_costmaps_){
 		ROS_DEBUG_NAMED("move_base","Starting up costmaps that were shut down previously");
 
-		for(vector<costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
+		for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
 			(*it)->start();
 		}
 
-		for(vector<costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
+		for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
 			(*it)->start();
 		}
 
@@ -1040,6 +1042,7 @@ bool MoveBase::executeCycle(geometry_msgs::PoseStamped& goal, std::vector<geomet
 	case CLEARING:
 		ROS_DEBUG_NAMED("move_base","In clearing/recovery state");
 		//we'll invoke whatever recovery behavior we're currently on if they're enabled
+		/*
 		if(recovery_behavior_enabled_ && recovery_index_ < recovery_behaviors_.size()){
 			ROS_DEBUG_NAMED("move_base_recovery","Executing behavior %u of %zu", recovery_index_, recovery_behaviors_.size());
 			recovery_behaviors_[recovery_index_]->runBehavior();
@@ -1078,6 +1081,7 @@ bool MoveBase::executeCycle(geometry_msgs::PoseStamped& goal, std::vector<geomet
 			resetState();
 			return true;
 		}
+		*/
 		break;
 	default:
 		ROS_ERROR("This case should never be reached, something is wrong, aborting");
@@ -1094,6 +1098,7 @@ bool MoveBase::executeCycle(geometry_msgs::PoseStamped& goal, std::vector<geomet
 	return false;
 }
 
+/*
 bool MoveBase::loadRecoveryBehaviors(ros::NodeHandle node){
 	XmlRpc::XmlRpcValue behavior_list;
 	if(node.getParam("recovery_behaviors", behavior_list)){
@@ -1177,7 +1182,9 @@ bool MoveBase::loadRecoveryBehaviors(ros::NodeHandle node){
 	//if we've made it here... we've constructed a recovery behavior list successfully
 	return true;
 }
+*/
 
+/*
 //we'll load our default recovery behaviors here
 void MoveBase::loadDefaultRecoveryBehaviors(){
 	recovery_behaviors_.clear();
@@ -1214,6 +1221,7 @@ void MoveBase::loadDefaultRecoveryBehaviors(){
 
 	return;
 }
+*/
 
 void MoveBase::resetState(){
 	state_ = PLANNING;
@@ -1224,11 +1232,11 @@ void MoveBase::resetState(){
 	//if we shutdown our costmaps when we're deactivated... we'll do that now
 	if(shutdown_costmaps_){
 		ROS_DEBUG_NAMED("move_base","Stopping costmaps");
-		for(vector<costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
+		for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
 			(*it)->stop();
 		}
 
-		for(vector<costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
+		for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
 			(*it)->stop();
 		}
 

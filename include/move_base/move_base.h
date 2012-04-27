@@ -44,10 +44,10 @@
 
 #include <tue_nav_core/base_local_planner.h>
 #include <tue_nav_core/base_global_planner.h>
-#include <nav_core/recovery_behavior.h>
+//#include <nav_core/recovery_behavior.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <costmap_2d/costmap_2d_ros.h>
-#include <costmap_2d/costmap_2d.h>
+#include <tue_costmap_2d/costmap_2d_ros.h>
+#include <tue_costmap_2d/costmap_2d.h>
 #include <vector>
 #include <string>
 #include <nav_msgs/GetPlan.h>
@@ -188,7 +188,7 @@ namespace move_base {
       tue_nav_core::TueBaseGlobalPlanner* planner_;
       std::string robot_base_frame_, global_frame_;
 
-      std::vector<boost::shared_ptr<nav_core::RecoveryBehavior> > recovery_behaviors_;
+      //std::vector<boost::shared_ptr<nav_core::RecoveryBehavior> > recovery_behaviors_;
       unsigned int recovery_index_;
 
       tf::Stamped<tf::Pose> global_pose_;
@@ -208,7 +208,7 @@ namespace move_base {
       geometry_msgs::PoseStamped oscillation_pose_;
       pluginlib::ClassLoader<tue_nav_core::TueBaseGlobalPlanner> bgp_loader_;
       pluginlib::ClassLoader<tue_nav_core::TueBaseLocalPlanner> blp_loader_;
-      pluginlib::ClassLoader<nav_core::RecoveryBehavior> recovery_loader_;
+      //pluginlib::ClassLoader<nav_core::RecoveryBehavior> recovery_loader_;
 
       //set up plan triple buffer
       std::vector<geometry_msgs::PoseStamped>* planner_plan_;
@@ -233,8 +233,8 @@ namespace move_base {
       bool setup_, p_freq_change_, c_freq_change_;
       bool new_global_plan_;
 
-      std::vector<costmap_2d::Costmap2DROS*> global_costmaps;
-      std::vector<costmap_2d::Costmap2DROS*> local_costmaps;
+      std::vector<tue_costmap_2d::Costmap2DROS*> global_costmaps;
+      std::vector<tue_costmap_2d::Costmap2DROS*> local_costmaps;
   };
 };
 #endif
