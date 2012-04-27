@@ -1,0 +1,112 @@
+<knowledge>
+
+    <object_class name="object"> 
+    
+        <probability_model>
+            <p_clutter value="0.0"/>
+        </probability_model>
+
+        <behavior_model attribute="position" model="position_kalman_filter">
+            <param name="max_acceleration" value="0" />                
+            <param name="uniform_probability" value="0.0001" />  
+        </behavior_model>
+
+        <behavior_model attribute="orientation" model="position_kalman_filter">
+            <param name="max_acceleration" value="1" />                
+            <param name="uniform_probability" value="0.001" /> 
+        </behavior_model>     
+
+        <behavior_model attribute="color" model="discrete_filter">
+            <param name="domain_size" value="100" />
+        </behavior_model> 
+
+        <behavior_model attribute="class_label" model="discrete_filter">
+            <param name="domain_size" value="100" />
+        </behavior_model>
+
+        <behavior_model attribute="name" model="discrete_filter">
+            <param name="domain_size" value="1000" />
+        </behavior_model>
+          
+    </object_class>
+
+    <object_class name="body" base="object">
+    
+        <probability_model>
+            <p_clutter value="0"/>
+            <p_new value="0.00001"/>
+        </probability_model>
+
+        <behavior_model attribute="position" model="position_kalman_filter">
+            <param name="max_acceleration" value="10" />                
+            <param name="uniform_probability" value="0.000001" /> 
+        </behavior_model>
+             
+    </object_class>
+
+    <object_class name="person" base="object">
+    
+        <probability_model>
+            <p_clutter value="0.01"/>
+            <p_new value="0.0000001"/>
+        </probability_model>
+
+        <behavior_model attribute="position" model="position_kalman_filter">
+            <param name="max_acceleration" value="4" />                
+            <param name="uniform_probability" value="0.00001" /> 
+        </behavior_model>
+             
+    </object_class>
+
+    <object_class name="face" base="object">
+    
+        <probability_model>
+            <p_clutter value="0.000"/>
+         </probability_model>
+
+        <behavior_model attribute="position" model="position_kalman_filter">
+            <param name="max_acceleration" value="10" />                
+            <param name="uniform_probability" value="0.000001" /> 
+        </behavior_model>             
+             
+    </object_class>
+
+    <object_class name="cup" base="object">
+    
+        <probability_model>
+            <p_clutter value="0.0000000000000001"/>
+        </probability_model>
+
+        <behavior_model attribute="position" model="position_kalman_filter">
+            <param name="max_acceleration" value="5" />                
+            <param name="uniform_probability" value="0.001" /> 
+        </behavior_model>      
+
+        <behavior_model attribute="color" model="discrete_filter">
+            <param name="domain_size" value="10" />
+        </behavior_model>       
+             
+    </object_class>
+
+    <object_class name="book" base="object">
+    
+        <probability_model>
+            <p_clutter value="0.0000000000000001"/>
+        </probability_model>
+
+        <behavior_model attribute="position" model="position_kalman_filter">
+            <param name="max_acceleration" value="0.05" />                
+            <param name="uniform_probability" value="0.001" /> 
+        </behavior_model>      
+
+        <behavior_model attribute="color" model="discrete_filter">
+            <param name="domain_size" value="10" />
+        </behavior_model>       
+             
+    </object_class>
+
+
+    
+</knowledge>
+
+

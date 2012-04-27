@@ -1,0 +1,24 @@
+base_global_planner : tue_astar_planner/AStarPlannerROS
+
+base_local_planner  : amigo_navigation_local/AmigoLocalPlanner
+
+# Planner frequency for the global plan
+planner_frequency : 3
+
+# Specific local planner parameters
+AmigoLocalPlanner:
+    max_vel_translation : 0.5
+    max_acc_translation : 0.5
+    max_vel_rotation    : 0.5
+    max_acc_rotation    : 0.4
+    xy_goal_tolerance   : 0.1
+    yaw_goal_tolerance  : 0.05
+
+    # maximum allowed yaw error between robot and path while driving
+    max_yaw_error_driving : 0.785  # 0.25 * PI
+
+    # maximum allowed yaw error between robot and path while standing still
+    max_yaw_error_still   : 0.5
+
+    # STILL is defined as having a lower velocity than still_max_vel
+    still_max_vel          : 0.01
