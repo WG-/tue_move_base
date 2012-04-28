@@ -114,16 +114,62 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
 	///////////////////////////////////////////////
 	///////////// GLOBAL COSTMAPS /////////////////
 	///////////////////////////////////////////////
-	//
-	global_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("global_costmap_kinect", tf_));
-	global_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("global_costmap_laser", tf_));
 
-	////////////////////////////////////////////////////////
-	///////////// INITIALIZE THEM TO PAUSE /////////////////
-	///////////////////////////////////////////////////////
-	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = global_costmaps.begin(); it != global_costmaps.end(); ++it) {
-		(*it)->pause();
+	XmlRpc::XmlRpcValue global_costmap_names;
+	if (!private_nh.getParam("global_costmaps", global_costmap_names)) {
+		ROS_ERROR("No global costmap names given. (namespace: %s)", private_nh.getNamespace().c_str());
+		return;
 	}
+
+	if (global_costmap_names.getType() != XmlRpc::XmlRpcValue::TypeArray) {
+		ROS_ERROR("Malformed global costmaps specification.  (namespace: %s)", private_nh.getNamespace().c_str());
+		return;
+	}
+
+	for (int i = 0; i < global_costmap_names.size(); ++i) {
+		if (global_costmap_names[i].getType() != XmlRpc::XmlRpcValue::TypeString) {
+			ROS_ERROR("Array of global costmap names should only contain strings.  (namespace: %s)", private_nh.getNamespace().c_str());
+			return;
+		}
+		tue_costmap_2d::Costmap2DROS* costmap = new tue_costmap_2d::Costmap2DROS((std::string)global_costmap_names[i], tf_);
+
+		// INITIALIZE IT TO PAUSE
+		costmap->pause();
+		global_costmaps.push_back(costmap);
+	}
+
+	//global_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("global_costmap_kinect", tf_));
+	//global_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("global_costmap_laser", tf_));
+
+	//////////////////////////////////////////////
+	///////////// LOCAL COSTMAPS /////////////////
+	//////////////////////////////////////////////
+
+	XmlRpc::XmlRpcValue local_costmap_names;
+	if (!private_nh.getParam("local_costmaps", local_costmap_names)) {
+		ROS_ERROR("No global costmap names given. (namespace: %s)", private_nh.getNamespace().c_str());
+		return;
+	}
+
+	if (local_costmap_names.getType() != XmlRpc::XmlRpcValue::TypeArray) {
+		ROS_ERROR("Malformed global costmaps specification.  (namespace: %s)", private_nh.getNamespace().c_str());
+		return;
+	}
+
+	for (int i = 0; i < local_costmap_names.size(); ++i) {
+		if (local_costmap_names[i].getType() != XmlRpc::XmlRpcValue::TypeString) {
+			ROS_ERROR("Array of global costmap names should only contain strings.  (namespace: %s)", private_nh.getNamespace().c_str());
+			return;
+		}
+		tue_costmap_2d::Costmap2DROS* costmap = new tue_costmap_2d::Costmap2DROS((std::string)local_costmap_names[i], tf_);
+
+		// INITIALIZE IT TO PAUSE
+		costmap->pause();
+		local_costmaps.push_back(costmap);
+	}
+
+	//local_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("local_costmap_kinect", tf_));
+	//local_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("local_costmap_laser", tf_));
 
 	//initialize the global planner
 	try {
@@ -147,20 +193,6 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
 	{
 		ROS_FATAL("Failed to create the %s planner, are you sure it is properly registered and that the containing library is built? Exception: %s", global_planner.c_str(), ex.what());
 		exit(0);
-	}
-
-	//////////////////////////////////////////////
-	///////////// LOCAL COSTMAPS /////////////////
-	//////////////////////////////////////////////
-	//
-	local_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("local_costmap_kinect", tf_));
-	local_costmaps.push_back(new tue_costmap_2d::Costmap2DROS("local_costmap_laser", tf_));
-
-	////////////////////////////////////////////////////////
-	///////////// INITIALIZE THEM TO PAUSE /////////////////
-	///////////////////////////////////////////////////////
-	for(vector<tue_costmap_2d::Costmap2DROS*>::iterator it = local_costmaps.begin(); it != local_costmaps.end(); ++it) {
-		(*it)->pause();
 	}
 
 	//create a local planner
