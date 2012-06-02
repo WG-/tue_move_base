@@ -657,7 +657,7 @@ bool MoveBase::isQuaternionValid(const geometry_msgs::Quaternion& q){
 	//next, we'll normalize the quaternion and check that it transforms the vertical vector correctly
 	tf_q.normalize();
 
-	btVector3 up(0, 0, 1);
+	tf::Vector3 up(0, 0, 1);
 
 	double dot = up.dot(up.rotate(tf_q.getAxis(), tf_q.getAngle()));
 
