@@ -8,27 +8,16 @@
  <url>http://ros.org/wiki/move_base</url>
 
  <depend package="roscpp"/>
- <depend package="rosconsole"/>
- <depend package="std_msgs"/>
+ <depend package="std_srvs"/>
  <depend package="move_base_msgs"/>
  <depend package="geometry_msgs"/>
  <depend package="visualization_msgs"/>
  <depend package="actionlib"/>
- <!--depend package="nav_core"/ --> <!-- for recovery behavior -->
- <depend package="tue_nav_core"/>
- <depend package="pluginlib"/>
- <depend package="tue_costmap_2d"/>
  <depend package="tf"/>
- <depend package="nav_msgs"/>
- <depend package="roslib"/>
- <depend package="rospy"/>
- <depend package="rosmsg"/>
- <depend package="rostopic"/>
- <depend package="std_srvs"/>
- <depend package="dynamic_reconfigure"/>
-
- <export>
- <cpp cflags="-I${prefix}/include `rosboost-cfg --cflags`" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib `rosboost-cfg --lflags thread`"/>
- </export>
+ <depend package="nav_core"/>
+ <depend package="pluginlib"/>
+ <depend package="costmap_2d"/>
+ <depend package="tue_move_base_msgs"/>
+ <depend package="tue_costmap_msgs"/>
 
 </package>

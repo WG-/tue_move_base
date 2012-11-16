@@ -2,26 +2,23 @@
 
 <launch>
 
-    <include file="$(find amigo_machine_files)/machines/amigo1.machine" />
-    <include file="$(find amigo_machine_files)/machines/amigo2.machine" />
-    <include file="$(find amigo_machine_files)/machines/amigo3.machine" />
-    <include file="$(find amigo_machine_files)/machines/amigo4.machine" />
-    <include file="$(find amigo_machine_files)/machines/localhost.machine" />
-
-    <arg if="$(optenv ROBOT_REAL false)" name="machine" value="amigo3"/>
-    <arg unless="$(optenv ROBOT_REAL false)" name="machine" value="localhost"/>  
-
-    <node pkg="tue_move_base" type="move_base" respawn="false" name="move_base" output="screen" machine="$(arg machine)">
+    <arg if="$(optenv ROBOT_REAL false)" name="machine" default="amigo4"/>
+    <arg unless="$(optenv ROBOT_REAL false)" name="machine" default="localhost"/>
+    <include file="$(find amigo_machine_files)/machines/$(arg machine).machine" /> 
+    
+    <node pkg="tue_move_base" type="move_base" respawn="true" name="move_base" output="screen" machine="$(arg machine)">
         <!-- local and global planner parameters -->        
-        <rosparam file="$(find amigo_launch_files)/parameters/move_base.yaml" command="load" />
+        <rosparam file="$(find tue_move_base)/parameters/move_base.yaml" command="load" />
 
-        <!-- Global costmap parameters -->        
-        <rosparam file="$(find amigo_launch_files)/parameters/global_costmap_laser.yaml" command="load" ns="global_costmap_laser" />
-	<rosparam file="$(find amigo_launch_files)/parameters/global_costmap_kinect.yaml" command="load" ns="global_costmap_kinect" />
+        <!-- Common costmap parameters -->        
+        <rosparam file="$(find tue_move_base)/parameters/costmap_common_params.yaml" command="load" ns="global_costmap" />
+        <rosparam file="$(find tue_move_base)/parameters/costmap_common_params.yaml" command="load" ns="local_costmap" />
 
-	<!-- Local costmap parameters -->
-	<rosparam file="$(find amigo_launch_files)/parameters/local_costmap_laser.yaml" command="load" ns="local_costmap_laser" />
-	<rosparam file="$(find amigo_launch_files)/parameters/local_costmap_kinect.yaml" command="load" ns="local_costmap_kinect" />
+        <!-- Global costmap settings -->
+        <rosparam file="$(find tue_move_base)/parameters/costmap_global_params.yaml" command="load" />
+
+        <!-- Local costmap settings -->
+        <rosparam file="$(find tue_move_base)/parameters/costmap_local_params.yaml" command="load" />
         
     </node>
 
