@@ -12,13 +12,13 @@
 
         <!-- Common costmap parameters -->        
         <rosparam file="$(find tue_move_base)/parameters/costmap_common_params.yaml" command="load" ns="global_costmap" />
-        <rosparam file="$(find tue_move_base)/parameters/costmap_common_params.yaml" command="load" ns="local_costmap" />
+        <!-- <rosparam file="$(find tue_move_base)/parameters/costmap_common_params.yaml" command="load" ns="local_costmap" /> --> 
 
         <!-- Global costmap settings -->
         <rosparam file="$(find tue_move_base)/parameters/costmap_global_params.yaml" command="load" />
 
         <!-- Local costmap settings -->
-        <rosparam file="$(find tue_move_base)/parameters/costmap_local_params.yaml" command="load" />
+        <!-- <rosparam file="$(find tue_move_base)/parameters/costmap_local_params.yaml" command="load" /> -->
         
     </node>
 

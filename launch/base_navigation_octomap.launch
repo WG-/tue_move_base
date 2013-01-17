@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+	
+	<launch>
+	
+		<arg name="ROBOT_REAL" default="$(optenv ROBOT_REAL false)" />
+		<arg if="$(optenv ROBOT_REAL false)" name="machine" default="amigo4"/>
+		<arg unless="$(optenv ROBOT_REAL false)" name="machine" default="localhost"/>
+		<include file="$(find amigo_machine_files)/machines/$(arg machine).machine" /> 
+		
+		<!-- Start tue_move_base with the projected map from tue_map_3d (octomap) -->
+		<node pkg="tue_move_base" type="move_base" respawn="true" name="move_base" output="screen" machine="$(arg machine)">
+			<!-- local and global planner parameters -->        
+			<rosparam file="$(find tue_move_base)/parameters/move_base.yaml" command="load" />
+	
+			<!-- Common costmap parameters for octomap -->        
+			<rosparam file="$(find tue_move_base)/parameters/costmap_common_params_octomap.yaml" command="load" ns="global_costmap" />
+	
+			<!-- Global costmap settings for octomap -->
+			<rosparam file="$(find tue_move_base)/parameters/costmap_global_params_octomap.yaml" command="load" />
+			
+			<!-- Octomap settings -->
+			<rosparam file="$(find tue_move_base)/parameters/octomap_params.yaml" command="load" />
+			
+			<!-- Set correct map topics for tue_map_3d node -->
+			<remap from="/cloud_in" to="/fused_pointclouds" /> 
+			<remap from="/map" to="/octree_map" />
+			
+		</node>
+				
+		<!-- REAL ROBOT: use throttled and voxelized topics -->
+		<group if="$(arg ROBOT_REAL)">
+		<!-- Relay laser, base- and head kinect pointclouds to fused_pointclouds topic -->
+			 <node args="/base_scan_pointcloud /fused_pointclouds" name="base_scan_to_fused_pointclouds" pkg="topic_tools" type="relay" />
+			 <node args="/base_camera/camera/rgb/points_throttled_and_voxelized /fused_pointclouds" name="base_camera_to_fused_pointclouds" pkg="topic_tools" type="relay" /> 
+			 <node args="/camera/rgb/points_throttled_and_voxelized /fused_pointclouds" name="camera_to_fused_pointclouds" pkg="topic_tools" type="relay" /> 
+		</group>
+		
+		<!-- SIMULATION: use original topics, note that the camera namespace is absent for base_camera! (must be fixed in urdf model) -->
+		<group unless="$(arg ROBOT_REAL)">
+		<!-- Relay laser, base- and head kinect pointclouds to fused_pointclouds topic -->
+			 <node args="/base_scan_pointcloud /fused_pointclouds" name="base_scan_to_fused_pointclouds" pkg="topic_tools" type="relay" />
+			 <node args="/base_camera/rgb/points /fused_pointclouds" name="base_camera_to_fused_pointclouds" pkg="topic_tools" type="relay" /> 
+			 <node args="/camera/rgb/points /fused_pointclouds" name="camera_to_fused_pointclouds" pkg="topic_tools" type="relay" /> 
+		</group>
+		
+		<!-- Start the node that converts the laser data to a pointcloud -->
+		<node pkg="tue_laser_to_pointcloud" type="laser_to_pointcloud" name="laser_to_pointcloud" machine="$(arg machine)"/>	
+	
+	</launch>
+	

@@ -1,10 +1,9 @@
-global_frame: /map
+global_frame: /projected_map
 robot_base_frame: base_link
 
 update_frequency: 5.0
 publish_frequency: 5.0
 
-#this is set by the map server, so no need to set it here --> causes warning from costmap_2d
 #resolution: 0.025
 
 obstacle_range: 3.5
@@ -26,8 +25,8 @@ circumscribed_radius: 0.35
 # If the robot cannot navigate through a door, increase this value
 cost_scaling_factor: 5   # DEFAULT: 10.0
 
-observation_sources: base_laser point_cloud_sensor
-base_laser: {sensor_frame: /base_laser, data_type: LaserScan, topic: /base_scan, marking: true, clearing: true}
+#observation_sources: base_laser 
+#base_laser: {sensor_frame: /base_laser, data_type: LaserScan, topic: /base_scan, marking: true, clearing: true}
 
 #observation_sources: point_cloud_sensor
 #point_cloud_sensor: {sensor_frame: /base_kinect_openni_rgb_optical_frame, data_type: PointCloud2, topic: /base_kinect/camera/rgb/points_voxelized, marking: true, clearing: true, min_obstacle_height: 0.05, max_obstacle_height: 1.8}

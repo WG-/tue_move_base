@@ -1,0 +1,35 @@
+resolution : 0.1
+frame_id : /map
+
+# ground filtering
+# the robot's base frame in which ground plane detection is performed (if enabled)
+base_frame_id : base_link
+filter_ground : false
+ground_filter/distance : 0.04
+ground_filter/angle : 0.15
+ground_filter/plane_distance : 0.07
+
+# maximum range to integrate (speedup!)
+sensor_model/max_range : 3.0
+# do not set the min_z value heigher than the ground plan, this discards the floor plane!
+pointcloud_min_z : -0.1
+pointcloud_max_z : 2.00
+occupancy_min_z : 0.05
+occupancy_max_z : 2.00
+
+# sensor model 
+# If you increase the hit probability and decrease the miss probability, 
+# it will make the map trust the sensor more after one measurement. 
+# If you increase min and decrease max at the same time, 
+# this will enable fast updates at the cost of more sensor noise appearing in the map
+
+# probabilities for hits and misses, default 0.7 and 0.4
+sensor_model/hit : 0.7
+sensor_model/miss : 0.4
+# min and max probabilities for clamping, default 0.12 and 0.97
+sensor_model/min : 0.12
+sensor_model/max : 0.97
+
+# 2D map projection
+incremental_2D_projection : true
+unknown_cell_tolerance : 0.5

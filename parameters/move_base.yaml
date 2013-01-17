@@ -2,6 +2,9 @@ base_global_planner : tue_astar_planner/AStarPlannerROS
 
 base_local_planner  : amigo_navigation_local/AmigoLocalPlanner
 
+# time to re-plan before the action client is aborted
+time_to_replan      : 10
+
 # Planner frequency for the global plan, obsolete
 # planner_frequency : 3
 
