@@ -22,7 +22,7 @@ AmigoLocalPlanner:
     yaw_goal_tolerance  : 0.05  #0.05
 
     # maximum allowed yaw error between robot and path while driving
-    max_yaw_error_driving : 0.0.175 * PI #1.4  # 0.25 * PI
+    max_yaw_error_driving : 0.175 * PI #1.4  # 0.25 * PI
 
     # maximum allowed yaw error between robot and path while standing still
     max_yaw_error_still   : 0.5
