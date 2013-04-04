@@ -26,7 +26,7 @@ circumscribed_radius: 0.35
 # If the robot cannot navigate through a door, increase this value
 cost_scaling_factor: 5   # DEFAULT: 10.0
 
-observation_sources: front_laser back_laser point_cloud_sensor
+observation_sources: front_laser back_laser
 back_laser: {sensor_frame: /back_laser, data_type: LaserScan, topic: /base_scan, marking: true, clearing: true}
 front_laser: {sensor_frame: /front_laser, data_type: LaserScan, topic: /base_scan, marking: true, clearing: true}
 
