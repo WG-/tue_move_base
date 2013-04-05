@@ -281,7 +281,10 @@ void MoveBase::generateReference() {
     // so only the static map + the latest sensor readings are in the global costmap
     // and only the latest sensor readings are in the local costmap
     //local_costmap_->resetMapOutsideWindow(0,0); --> from now on we will only use the global costmap
-    global_costmap_->resetMapOutsideWindow(0,0);
+
+    // NOTE BAS: as we now use 2 laser scanner the costmap should NOT be cleared everytime because then
+    // readings of the front and back laser are erased every iteration.
+    //global_costmap_->resetMapOutsideWindow(0,0);
 
     // publishCostmap(*local_costmap_, 200, pub_local_costmap_);
     publishCostmap(*global_costmap_, 200, pub_global_costmap_);
