@@ -7,7 +7,6 @@ namespace move_base {
 MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
     tf_(tf),
     as_(NULL),
-    goal_area_radius_(0.1),
     //local_planner_(NULL),     // deprecated as this is handled by the shared pointer from the boost library
     //global_planner_(NULL),    // deprecated as this is handled by the shared pointer from the boost library
     bgp_loader_("nav_core", "nav_core::BaseGlobalPlanner"),
@@ -33,6 +32,10 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
     double time_to_replan_sec;
     private_nh.param("time_to_replan", time_to_replan_sec, 10.0);
     time_to_replan_ = ros::Duration(time_to_replan_sec);
+    private_nh.param("max_time_to_execute_replan", max_time_to_replan_, 30.0);
+    private_nh.param("goal_area_radius", goal_area_radius_, 0.1);
+    private_nh.param("replan_length_difference_factor", replan_length_diff_factor_, 1.5);
+    private_nh.param("replan_length_difference_tolerance", replan_length_diff_tol_, 0.2);
 
     // from now on we will only use the global costmap
     // pub_local_costmap_ = private_nh.advertise<visualization_msgs::Marker>("local_costmap", 2);
@@ -40,12 +43,16 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
 
     //for commanding the base
     vel_pub_ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-    current_goal_pub_ = private_nh.advertise<geometry_msgs::PoseStamped>("current_goal", 0 );
 
     // markers for debugging
     debug_marker_pub_ = private_nh.advertise<visualization_msgs::Marker>("debug_marker", 1 );
-    goal_pose_pub_ = private_nh.advertise<visualization_msgs::Marker>("goal_pose", 1 );
 
+    /// for visual feedback
+    goal_pose_pub_ = private_nh.advertise<visualization_msgs::Marker>("goal_pose", 1);
+    current_plan_pub_ = private_nh.advertise<visualization_msgs::Marker>("current_path", 1);
+    re_plan_pub_ = private_nh.advertise<visualization_msgs::Marker>("replanned_path", 1);
+
+    /// action server
     ros::NodeHandle action_nh("move_base");
     action_goal_pub_ = action_nh.advertise<tue_move_base_msgs::MoveBaseActionGoal>("goal", 1);
 
@@ -94,6 +101,7 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
         // changed from createClassInstance (deprecated) to createInstance
         global_planner_ = bgp_loader_.createInstance(global_planner);
         global_planner_->initialize(bgp_loader_.getName(global_planner), global_costmap_);
+		ROS_INFO("Initialized global planner");
     } catch (const pluginlib::PluginlibException& ex)
     {
         ROS_FATAL("Failed to create the %s planner, are you sure it is properly registered and that the containing library is built? Exception: %s", global_planner.c_str(), ex.what());
@@ -125,6 +133,7 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
         local_planner_ = blp_loader_.createInstance(local_planner);
         // also init the local planner with the global costmap
         local_planner_->initialize(blp_loader_.getName(local_planner), &tf_, global_costmap_);
+		ROS_INFO("Initialized local planner");
     } catch (const pluginlib::PluginlibException& ex)
     {
         ROS_FATAL("Failed to create the %s planner, are you sure it is properly registered and that the containing library is built? Exception: %s", local_planner.c_str(), ex.what());
@@ -142,6 +151,7 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
 
     //we're all set up now so we can start the action server
     as_->start();
+	ROS_INFO("Action server started, ready to go!");
 }
 
 MoveBase::~MoveBase(){
@@ -179,6 +189,11 @@ void MoveBase::simpleCallback(const geometry_msgs::PoseStamped::ConstPtr& goal) 
     tue_move_base_msgs::MoveBaseActionGoal action_goal;
     action_goal.header.stamp = ros::Time::now();
 
+    t_last_cmd_vel_ = ros::Time::now();
+    t_last_replan_ = ros::Time::now();
+    prev_path_length_factor_ = 0.0;
+    replanned_path_.clear();
+
     if (global_planner_->makePlan(robot_pose_msg, *goal, action_goal.goal.path)) {
         action_goal_pub_.publish(action_goal);
     }
@@ -197,7 +212,11 @@ void MoveBase::goalCallback() {
     current_path_ = goal.path;
     local_planner_->setPlan(current_path_);
     current_goal_ = goal.path.back();
-    ros::Time t_last_cmd_vel = ros::Time::now();
+    t_last_cmd_vel_ = ros::Time::now();
+    t_last_replan_ = ros::Time::now();
+    path_time_out_ = ros::Duration(0);
+    prev_path_length_factor_ = 0.0;
+    replanned_path_.clear();
 }
 
 void MoveBase::preemtCallback() {
@@ -271,7 +290,7 @@ bool MoveBase::planService(tue_move_base_msgs::GetPath::Request &req, tue_move_b
 }
 
 /**********************************************************
- *
+ *                  GENERATE REFERENCE
  **********************************************************/
 
 
@@ -315,14 +334,6 @@ void MoveBase::generateReference() {
     // if there is no path and no current waypoint it will equal -1
     nr_poses_to_goal = current_path_.size() - abs(current_waypoint_);
 
-    ///////////////////////
-    /////// NEW CODE //////
-    ///////////////////////
-    // we have three cases to check:
-    // the global plan is free or not
-    // the local plan is free or not
-    // and the goal is blocked by either an obstacle or the goal is not feasible
-
     geometry_msgs::Twist cmd_vel;
     geometry_msgs::PointStamped obstacle_position;
     // init to -1 so executive can distinguish the noticed obstacle in the feedback message
@@ -343,27 +354,28 @@ void MoveBase::generateReference() {
     feedback_msg.obstacle_position = obstacle_position;
     feedback_msg.nr_poses_to_goal = nr_poses_to_goal;
 
-    //ROS_INFO_STREAM("obstacle at x = " << obstacle_position.point.x <<
-    //                " y = " << obstacle_position.point.y <<
-    //                "   nr_poses_to_goal: " << nr_poses_to_goal);
+    ROS_DEBUG_STREAM("obstacle at x = " << obstacle_position.point.x << " y = " << obstacle_position.point.y <<
+                     "   nr_poses_to_goal: " << nr_poses_to_goal);
 
-    // if the global plan is free and not empty (otherwise it is also free!),
-    // check whether the local plan is free or not
+    /// if the global plan is free and not empty (otherwise it is also free!),
+    /// check whether the local plan is free or not
     if (global_plan_free && !current_path_.empty()){
         // if the local plan is also free, publish the command
         if (local_plan_free){
             vel_pub_.publish(cmd_vel);
-            t_last_cmd_vel = ros::Time::now();
+            t_last_cmd_vel_ = ros::Time::now();
             //ROS_INFO("Case 1: global free + local free");
         }
-        // if the local plan is not free, something strange is going on so try to re-plan
+        /// if the local plan is not free, something strange is going on so try to re-plan
         else {
-            if ((ros::Time::now() - t_last_cmd_vel) > time_to_replan_) {
+            ROS_INFO_STREAM_THROTTLE(2,"[tue_move_base] time since last cmd_vel is " << (ros::Time::now() - t_last_cmd_vel_) <<
+                                     ", time to abort is " << (time_to_replan_ + path_time_out_));
+            if ((ros::Time::now() - t_last_cmd_vel_) > time_to_replan_) {
                 as_->setAborted();
-                ROS_INFO("[tue_move_base] time to replan (%f sec.) exceeded --> ABORT action client",time_to_replan_.toSec());
+                ROS_INFO("[tue_move_base] time to replan (%f sec.) exceeded --> ABORT action client", time_to_replan_.toSec());
             }
             else {
-                ROS_INFO_THROTTLE(1,"[tue_move_base] global plan free, local plan blocked --> trying to re-plan");
+                ROS_DEBUG_THROTTLE(1,"[tue_move_base] global plan free, local plan blocked --> trying to re-plan");
                 geometry_msgs::PoseStamped robot_pose_msg;
                 robot_pose_msg.header.frame_id = global_frame_;
                 robot_pose_msg.header.stamp = ros::Time();
@@ -373,45 +385,38 @@ void MoveBase::generateReference() {
                 replanned_path_.clear();
                 // if a new plan can be found, send it to the local planner
                 if (global_planner_->makePlan(robot_pose_msg, current_goal_, replanned_path_)) {
-                    ROS_INFO("[tue_move_base] found a re-plan");
+                    ROS_DEBUG("[tue_move_base] found a re-plan");
                     current_path_ = replanned_path_;
                     local_planner_->setPlan(current_path_);
+                    replanned_path_.clear();
                 }
             }
-            //ROS_INFO("Case 2: global free + local blocked ");
+            ROS_DEBUG("Case 2: global free + local blocked ");
         }
     }
-    // if the global plan is not free, check the local path
-    // and whether an obstacle is blocking or the goal is not feasible anymore
+    /// if the global plan is not free, check the local path
+    /// and whether an obstacle is blocking or the goal is not feasible anymore
     else {
-        // if the local plan is still free, keep going...
-        // whether the goal is infeasible or an obstacle is blocking
+        /// if the local plan is still free, keep going...
+        /// whether the goal is infeasible or an obstacle is blocking
         if (local_plan_free) {
             if (goal_blocked){
                 vel_pub_.publish(cmd_vel);
-                t_last_cmd_vel = ros::Time::now();
-                //ROS_INFO("Case 3: global blocked + local free ");
+                t_last_cmd_vel_ = ros::Time::now();
+                ROS_DEBUG("Case 3: global blocked + local free ");
 
             }
             else {
                 vel_pub_.publish(cmd_vel);
-                t_last_cmd_vel = ros::Time::now();
-                //ROS_INFO("Case 4: global blocked + local free ");
+                t_last_cmd_vel_ = ros::Time::now();
+                ROS_DEBUG("Case 4: global blocked + local free ");
             }
         }
-        // if the local plan is not free, a new feasible goal must be computed
-        // or a re-plan is necessary
+        /// if the local plan is not free, a new feasible goal must be computed
+        /// or a re-plan is necessary
         else {
-            // try to find a new goal if the goal is blocked
+            /// try to find a new goal if the goal is blocked
             if (goal_blocked){
-                //                // make sure that the orientation remains the same
-                //                geometry_msgs::Quaternion prev_orientation = current_goal_.pose.orientation;
-                //                // remove the last pose
-                //                current_path_.pop_back();
-                //                // set the new goal with the previous orientation
-                //                // TODO: make sure that the orientation actually makes robot face the object to pick up
-                //                (current_path_.back()).pose.orientation = prev_orientation;
-                //                current_goal_ = current_path_.back();
                 updateGoal(current_goal_);
                 ROS_INFO("[tue_move_base] updated goal pose");
                 geometry_msgs::PoseStamped robot_pose_msg;
@@ -419,42 +424,92 @@ void MoveBase::generateReference() {
                 robot_pose_msg.header.stamp = ros::Time();
                 global_costmap_->getRobotPose(robot_pose_);
                 tf::poseStampedTFToMsg(robot_pose_, robot_pose_msg);
-
-                global_planner_->makePlan(robot_pose_msg, current_goal_,current_path_);
-
-                local_planner_->setPlan(current_path_);
-                //ROS_INFO("Case 5: global blocked + local blocked ");
+                //if (global_planner_->makePlan(robot_pose_msg, current_goal_,current_path_))
+                //    local_planner_->setPlan(current_path_);
+                ROS_INFO("Case 5: global blocked + local blocked ");
             }
-            // try to re-plan for a fixed number of seconds
-            // if no new plan can be found, abort the action client
+
+            /// try to re-plan for a fixed number of seconds
+            /// if no new plan can be found, abort the action client
+            ROS_DEBUG("Case 6: global blocked + local blocked ");
+            ROS_INFO_STREAM_THROTTLE(2,"[tue_move_base] time since last cmd_vel is " << (ros::Time::now() - t_last_cmd_vel_) <<
+                                     ", time to abort is " << (time_to_replan_ + path_time_out_));
+
+            if ((ros::Time::now() - t_last_cmd_vel_) > time_to_replan_ + path_time_out_) {
+                as_->setAborted();
+                ROS_INFO("[tue_move_base] time to replan (%f sec.) exceeded --> ABORT action client", (time_to_replan_ + path_time_out_).toSec());
+            }
             else {
-                //ROS_INFO("Case 6: global blocked + local blocked ");
-                if ((ros::Time::now() - t_last_cmd_vel) > time_to_replan_) {
-                    as_->setAborted();
-                    ROS_INFO("[tue_move_base] time to replan (%f sec.) exceeded --> ABORT action client",time_to_replan_.toSec());
-                }
-                else {
-                    ROS_INFO_THROTTLE(1,"[tue_move_base] global plan blocked, local plan blocked --> trying to re-plan");
-                    geometry_msgs::PoseStamped robot_pose_msg;
-                    robot_pose_msg.header.frame_id = global_frame_;
-                    robot_pose_msg.header.stamp = ros::Time();
-                    global_costmap_->getRobotPose(robot_pose_);
-                    tf::poseStampedTFToMsg(robot_pose_, robot_pose_msg);
-                    // do not clear current path, because it still needs to be checked whether it becomes free!
-                    replanned_path_.clear();
-                    // if a new plan can be found, send it to the local planner
-                    if (global_planner_->makePlan(robot_pose_msg, current_goal_, replanned_path_)) {
-                        ROS_INFO("[tue_move_base] found a re-plan");
+                ROS_DEBUG_THROTTLE(1,"[tue_move_base] global plan blocked, local plan blocked --> trying to re-plan");
+                geometry_msgs::PoseStamped robot_pose_msg;
+                robot_pose_msg.header.frame_id = global_frame_;
+                robot_pose_msg.header.stamp = ros::Time();
+                global_costmap_->getRobotPose(robot_pose_);
+                tf::poseStampedTFToMsg(robot_pose_, robot_pose_msg);
+                /// do not clear current path, because it still needs to be checked whether it becomes free!
+                replanned_path_.clear();
+
+                /// if a new plan can be found, send it to the local planner
+                if (global_planner_->makePlan(robot_pose_msg, current_goal_, replanned_path_)) {
+
+                    path_length_factor_ = (double)replanned_path_.size() / (double)(current_path_.size() - current_waypoint_);
+                    double path_time_out_sec = path_length_factor_ * time_to_replan_.toSec();
+                    path_time_out_ = ros::Duration(std::min(path_time_out_sec, max_time_to_replan_));
+
+                    /// check if the found re-plan is significantly different from the previous found plan
+                    if (std::abs(path_length_factor_ - prev_path_length_factor_) > replan_length_diff_tol_) {
+                        t_last_replan_ = ros::Time::now();
+                        t_last_cmd_vel_ = ros::Time::now();
+                        ROS_INFO_STREAM("[tue_move_base] found re-plan with length = " << replanned_path_.size() <<
+                                        ", current plan length = " << current_path_.size() <<
+                                        " - " << current_waypoint_ << " = " << (current_path_.size() - current_waypoint_));
+                    }
+
+                    ROS_DEBUG_STREAM("[tue_move_base] time since last found re-plan is " << (ros::Time::now() - t_last_replan_) <<
+                                    ", time out before this re-plan is executed is " << (path_time_out_));
+
+                    /// if the replanned path is less than a specified factor as long as the original path execute it immediately
+                    if (path_length_factor_ < replan_length_diff_factor_) {
                         current_path_ = replanned_path_;
                         local_planner_->setPlan(current_path_);
+                        path_time_out_ = ros::Duration(0);
+                        prev_path_length_factor_ = 0.0;
+                        ROS_INFO("[tue_move_base] executing re-plan immediately");
+                        replanned_path_.clear();
                     }
+                    /// else execute the path if the time out is exceeded
+                    else if ((ros::Time::now() - t_last_replan_) > path_time_out_) {
+                        current_path_ = replanned_path_;
+                        local_planner_->setPlan(current_path_);
+                        path_time_out_ = ros::Duration(0);
+                        prev_path_length_factor_ = 0.0;
+                        ROS_INFO("[tue_move_base] executing re-plan after re-plan time out");
+                        replanned_path_.clear();
+                    }
+                    prev_path_length_factor_ = path_length_factor_;
                 }
             }
         }
     }
 
-    // publish the feedback message
+    if (path_time_out_ > ros::Duration(0.0)) {
+        feedback_msg.nr_sec_till_replan_execution = path_time_out_.toSec() - (ros::Time::now() - t_last_replan_).toSec();
+        ROS_INFO_STREAM_THROTTLE(1,"time out till execution of replan = " << path_time_out_.toSec() - (ros::Time::now() - t_last_replan_).toSec() << " sec.");
+    }
+    else {
+        feedback_msg.nr_sec_till_replan_execution = path_time_out_.toSec();
+    }
+    feedback_msg.path = current_path_;
+
+    /// publish the feedback message
     as_->publishFeedback(feedback_msg);
+    /// publish the plan that is being executed
+    publishCurrentPlan(current_path_,0,1,0,1);
+    /// publish the re-plan that has been found
+    double plan_color = 0;
+    if (path_time_out_ > ros::Duration(0.0))
+        plan_color = (ros::Time::now()-t_last_replan_).toSec()/path_time_out_.toSec();
+    publishRePlan(replanned_path_,1-plan_color,plan_color,0,1);
 }
 
 // determine the index of the waypoint on the global path closest to the robot
@@ -523,14 +578,6 @@ bool MoveBase::checkGlobalPath(geometry_msgs::PointStamped& obstacle_position, b
             {
                 ROS_DEBUG("pose within goal area radius");
                 goal_blocked = true;
-
-                //                std_msgs::ColorRGBA color;
-                //                color.r = 1;
-                //                color.g = 1;
-                //                color.b = 0;
-                //                color.a = 1;
-                //                publishDebugMarker(p,color,debug_marker_pub_);
-
                 return false;
             }
 
@@ -640,7 +687,7 @@ void MoveBase::publishCostmap(const costmap_2d::Costmap2DROS& costmap_ros, int s
 
     marker.header.frame_id = costmap_ros.getGlobalFrameID();
     marker.header.stamp = ros::Time::now();
-    marker.ns = "costmap_amigo_global";
+    marker.ns = "costmap_amigo";
     marker.id = 0;
     marker.type = visualization_msgs::Marker::CUBE_LIST;
     marker.action = visualization_msgs::Marker::ADD;
@@ -668,7 +715,6 @@ void MoveBase::publishCostmap(const costmap_2d::Costmap2DROS& costmap_ros, int s
             p.z = 0.00;
 
             std_msgs::ColorRGBA color;
-            color.g = 0;
             color.a = 0.95;
 
             // Costmap_2d takes a occupancy grid and transforms it to a costmap
@@ -697,19 +743,21 @@ void MoveBase::publishCostmap(const costmap_2d::Costmap2DROS& costmap_ros, int s
             }
             if (cost == costmap_2d::INSCRIBED_INFLATED_OBSTACLE)
             {
-                color.r = 1;
+                color.r = 0.5;
+                color.g = 0;
                 color.b = 0;
             }
             if (cost == costmap_2d::FREE_SPACE)
             {
-                color.r = 0;
+                color.r = 1;
+                color.g = 1;
                 color.b = 1;
             }
             else if (cost > costmap_2d::FREE_SPACE && cost < costmap_2d::INSCRIBED_INFLATED_OBSTACLE)
             {
-                color.r = 1-cost;
-                color.b = cost;
-                color.a = 0.95;
+                color.r = 1-cost/255;
+                color.g = 1-cost/255;
+                color.b = 1-cost/255;
             }
 
             marker.points.push_back(p);
@@ -741,6 +789,66 @@ void MoveBase::publishGoal(geometry_msgs::PoseStamped& goal, ros::Publisher& pub
 
 }
 
+/// the current plan is also published by the global planner
+void MoveBase::publishCurrentPlan(const std::vector<geometry_msgs::PoseStamped>& path, double r, double g, double b, double a){
+    /// create a message for the plan
+    visualization_msgs::Marker current_path;
+    current_path.header.frame_id = global_costmap_->getGlobalFrameID();
+    current_path.header.stamp = ros::Time::now();
+    current_path.ns = "current_plan";
+    current_path.type = visualization_msgs::Marker::LINE_STRIP;
+    current_path.scale.x = global_costmap_->getResolution()/2;
+    current_path.color.r = r;
+    current_path.color.g = g;
+    current_path.color.b = b;
+    current_path.color.a = a;
+    current_path.action = visualization_msgs::Marker::ADD;
+    current_path.pose.orientation.w = 1.0;
+    current_path.lifetime = ros::Duration(0.0);
+
+
+    /// extract the plan in world co-ordinates, we assume the path is all in the same frame
+    for(unsigned int i=0; i < path.size(); i++){
+        geometry_msgs::Point p;
+        p.x = path[i].pose.position.x;
+        p.y = path[i].pose.position.y;
+        p.z = 0.05;
+        current_path.points.push_back(p);
+    }
+    current_plan_pub_.publish(current_path);
+}
+
+void MoveBase::publishRePlan(const std::vector<geometry_msgs::PoseStamped>& path, double r, double g, double b, double a){
+    /// create a message for the plan
+    visualization_msgs::Marker replan_path;
+
+    replan_path.header.frame_id = global_costmap_->getGlobalFrameID();;
+    replan_path.header.stamp = ros::Time::now();
+    replan_path.ns = "re_plan";
+    replan_path.type = visualization_msgs::Marker::LINE_STRIP;
+    replan_path.scale.x =  global_costmap_->getResolution()/2;
+    replan_path.color.r = r;
+    replan_path.color.g = g;
+    replan_path.color.b = b;
+    replan_path.color.a = a;
+    replan_path.pose.orientation.w = 1.0;
+    replan_path.lifetime = ros::Duration(0.0);
+    if (!path.empty())
+        replan_path.action = visualization_msgs::Marker::ADD;
+    else
+        replan_path.action = visualization_msgs::Marker::DELETE;
+
+    /// extract the plan in world co-ordinates, we assume the path is all in the same frame
+    for(unsigned int i=0; i < path.size(); i++){
+        geometry_msgs::Point p;
+        p.x = path[i].pose.position.x;
+        p.y = path[i].pose.position.y;
+        p.z = 0.05;
+        replan_path.points.push_back(p);
+    }
+    re_plan_pub_.publish(replan_path);
+}
+
 void MoveBase::publishDebugMarker(geometry_msgs::Point &point, std_msgs::ColorRGBA &color, ros::Publisher& publisher) {
 
     visualization_msgs::Marker marker;
@@ -767,7 +875,7 @@ int main(int argc, char** argv){
     move_base::MoveBase move_base("move_base", tf);
     //ros::spin();
 
-    ros::Rate r(10);
+    ros::Rate r(20);
     while (ros::ok()) {
         ros::spinOnce();
         move_base.generateReference();

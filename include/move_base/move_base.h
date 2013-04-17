@@ -70,6 +70,10 @@ private:
 
     void publishGoal(geometry_msgs::PoseStamped &goal, ros::Publisher& publisher);
 
+    void publishCurrentPlan(const std::vector<geometry_msgs::PoseStamped>& path, double r, double g, double b, double a);
+
+    void publishRePlan(const std::vector<geometry_msgs::PoseStamped>& path, double r, double g, double b, double a);
+
     void publishDebugMarker(geometry_msgs::Point &point, std_msgs::ColorRGBA &color, ros::Publisher& publisher);
 
     tf::TransformListener& tf_;
@@ -78,7 +82,7 @@ private:
 
     MoveBaseActionServer* as_;
 
-    float goal_area_radius_;
+    double goal_area_radius_;
 
     std::vector<geometry_msgs::PoseStamped> current_path_, replanned_path_;
     geometry_msgs::PoseStamped current_goal_;
@@ -94,11 +98,15 @@ private:
 
     tf::Stamped<tf::Pose> global_pose_;
 
-    ros::Time t_last_cmd_vel;
+    ros::Time t_last_cmd_vel_, t_last_replan_;
     ros::Duration time_to_replan_;
+    ros::Duration path_time_out_;
+    double max_time_to_replan_;
+    double path_length_factor_, prev_path_length_factor_;
+    double replan_length_diff_factor_, replan_length_diff_tol_;
 
     ros::Publisher current_goal_pub_, vel_pub_, action_goal_pub_, debug_marker_pub_, goal_pose_pub_;
-    ros::Publisher pub_local_costmap_, pub_global_costmap_, pub_new_costmap_;
+    ros::Publisher pub_local_costmap_, pub_global_costmap_, pub_new_costmap_, current_plan_pub_, re_plan_pub_;
     ros::Subscriber goal_sub_;
     ros::ServiceServer make_plan_srv_;
     ros::ServiceServer query_costmap_srv_;

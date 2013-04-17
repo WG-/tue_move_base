@@ -3,29 +3,50 @@ base_global_planner : tue_astar_planner/AStarPlannerROS
 base_local_planner  : amigo_navigation_local/AmigoLocalPlanner
 
 # time to re-plan before the action client is aborted
-time_to_replan      : 10
+time_to_replan : 5.0
+# max time out before a long re-plan is executed
+max_time_to_execute_replan : 20.0
+# a re-plan will be executed immediately of the length difference factor 
+# is below this value
+replan_length_difference_factor : 1.5
+# re-planning continues if the robot waits to execute a new plan
+# if a re-plan is within this tolerance it is not considered
+replan_length_difference_tolerance : 0.2
+
+# tolerance region on the goal position
+goal_area_radius : 0.1
+
+# initial head tilt angle
+head_tilt_angle     : 0.40
 
 # Planner frequency for the global plan, obsolete
 # planner_frequency : 3
 
 # Specific global planner parameters
 AStarPlannerROS:
-    smoothing_window_size: 1.0    
+    # the amount of smoothing to apply on the path
+    smoothing_window_size : 1    
 
 # Specific local planner parameters
 AmigoLocalPlanner:
+    # velocity and acceleration bounds
     max_vel_translation : 0.3   #0.5
-    max_acc_translation : 0.15  #0.15
+    max_acc_translation : 0.1  #0.15
     max_vel_rotation    : 0.5   #0.5
     max_acc_rotation    : 0.5 #2.5  #0.2
+    
+    # the gain on the velocity
+    gain : 0.5
+    
+    # goal tolerance region
     xy_goal_tolerance   : 0.1   #0.1
     yaw_goal_tolerance  : 0.05  #0.05
 
     # maximum allowed yaw error between robot and path while driving
-    max_yaw_error_driving : 0.09 * PI #1.4  # 0.25 * PI
+    max_yaw_error_driving : 0.175 * PI #1.4  # 0.25 * PI
 
     # maximum allowed yaw error between robot and path while standing still
-    max_yaw_error_still   : 0.5
+    max_yaw_error_still   : 0.3
 
     # the robot standing still is defined as having a lower velocity than STILL_MAX_VEL
     still_max_vel         : 0.01
@@ -45,7 +66,7 @@ AmigoLocalPlanner:
 
     # the local planner looks ahead LOOK_AHEAD meters along the global path. If it encounters
     # and obstacle on the path, it will command the robot to stop.
-    look_ahead : 1.0
+    look_ahead : 1.5
     # TODO
     #local_look_ahead        : 1.5
     #global_look_ahead       : 5.0
