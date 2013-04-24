@@ -149,6 +149,8 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
 
     query_costmap_srv_ = private_nh.advertiseService("query_costmap", &MoveBase::queryCostmapPointService, this);
 
+    clear_costmap_srv_ = private_nh.advertiseService("clear_costmap", &MoveBase::clearCostmapService, this);
+
     //we're all set up now so we can start the action server
     as_->start();
 	ROS_INFO("Action server started, ready to go!");
@@ -260,6 +262,17 @@ bool MoveBase::queryCostmapPointService(tue_costmap_msgs::PointQuery::Request& r
 
     return true;
 
+}
+
+bool MoveBase::clearCostmapService(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res) {
+
+    ROS_INFO("[tue_move_base] clearing costmap");
+
+    global_costmap_->resetMapOutsideWindow(0,0);
+
+    ROS_INFO("[tue_move_base] cleared costmap");
+
+    return true;
 }
 
 bool MoveBase::planService(tue_move_base_msgs::GetPath::Request &req, tue_move_base_msgs::GetPath::Response &res) {

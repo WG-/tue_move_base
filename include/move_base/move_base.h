@@ -50,6 +50,8 @@ private:
 
     bool queryCostmapPointService(tue_costmap_msgs::PointQuery::Request& req, tue_costmap_msgs::PointQuery::Response& resp);
 
+    bool clearCostmapService(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
+
     bool planService(tue_move_base_msgs::GetPath::Request &req, tue_move_base_msgs::GetPath::Response &resp);
 
     bool makePlan(const geometry_msgs::PoseStamped& goal, std::vector<geometry_msgs::PoseStamped>& plan);
@@ -110,6 +112,7 @@ private:
     ros::Subscriber goal_sub_;
     ros::ServiceServer make_plan_srv_;
     ros::ServiceServer query_costmap_srv_;
+    ros::ServiceServer clear_costmap_srv_;
 
     pluginlib::ClassLoader<nav_core::BaseGlobalPlanner> bgp_loader_;
     pluginlib::ClassLoader<nav_core::BaseLocalPlanner> blp_loader_;
