@@ -193,6 +193,7 @@ void MoveBase::simpleCallback(const geometry_msgs::PoseStamped::ConstPtr& goal) 
 
     t_last_cmd_vel_ = ros::Time::now();
     t_last_replan_ = ros::Time::now();
+    path_time_out_ = ros::Duration(0);
     prev_path_length_factor_ = 0.0;
     replanned_path_.clear();
 
