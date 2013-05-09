@@ -354,6 +354,7 @@ void MoveBase::generateReference() {
     obstacle_position.point.x = -1;
     obstacle_position.point.y = -1;
     obstacle_position.point.z = -1;
+    obstacle_position.header.frame_id = global_frame_;
 
     bool goal_blocked = false;
 
