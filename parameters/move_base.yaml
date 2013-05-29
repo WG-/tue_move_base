@@ -49,7 +49,7 @@ AmigoLocalPlanner:
     max_yaw_error_still   : 0.3
 
     # the robot standing still is defined as having a lower velocity than STILL_MAX_VEL
-    still_max_vel         : 0.01
+    still_max_vel         : 0.05
 
     # if the robot is within MAX_STRAFE_DISTANCE from the goal, it strafes
     max_strafe_distance     : 0.4
