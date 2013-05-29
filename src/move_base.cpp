@@ -336,6 +336,15 @@ void MoveBase::generateReference() {
     // notify the actien client if the goal is reached
     // and return, otherwise an empty plan is fed to the local planner!
     if (local_planner_->isGoalReached()) {
+		/// make the robot stand still
+        geometry_msgs::Twist cmd_vel;
+        cmd_vel.angular.x = 0;
+        cmd_vel.angular.y = 0;
+        cmd_vel.angular.z = 0;
+        cmd_vel.linear.x = 0;
+        cmd_vel.linear.y = 0;
+        cmd_vel.linear.z = 0;
+        vel_pub_.publish(cmd_vel);
         as_->setSucceeded();
         ROS_INFO("[tue_move_base] goal reached --> SUCCEED action client");
         return;
