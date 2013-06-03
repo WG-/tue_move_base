@@ -16,9 +16,6 @@ replan_length_difference_tolerance : 0.2
 # tolerance region on the goal position
 goal_area_radius : 0.1
 
-# initial head tilt angle
-head_tilt_angle     : 0.40
-
 # Planner frequency for the global plan, obsolete
 # planner_frequency : 3
 
