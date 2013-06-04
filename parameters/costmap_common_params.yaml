@@ -26,12 +26,6 @@ circumscribed_radius: 0.35
 # If the robot cannot navigate through a door, increase this value
 cost_scaling_factor: 5   # DEFAULT: 10.0
 
-observation_sources: front_laser back_laser
-back_laser: {sensor_frame: /back_laser, data_type: LaserScan, topic: /base_scan, marking: true, clearing: true}
-front_laser: {sensor_frame: /front_laser, data_type: LaserScan, topic: /base_scan, marking: true, clearing: true}
 
-#observation_sources: point_cloud_sensor
-#point_cloud_sensor: {sensor_frame: /base_kinect_openni_rgb_optical_frame, data_type: PointCloud2, topic: /base_kinect/camera/rgb/points_voxelized, marking: true, clearing: true, min_obstacle_height: 0.05, max_obstacle_height: 1.8}
 
-publish_voxel_map: false #toegevoegd
-map_type: costmap #toegevoegd
+

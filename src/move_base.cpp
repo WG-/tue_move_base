@@ -736,7 +736,7 @@ void MoveBase::publishCostmap(const costmap_2d::Costmap2DROS& costmap_ros, int s
             geometry_msgs::Point p;
             p.x = x;
             p.y = y;
-            p.z = 0.00;
+            p.z = 0.0;
 
             std_msgs::ColorRGBA color;
             color.a = 0.95;

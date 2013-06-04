@@ -1,3 +1,8 @@
 global_costmap:
+  map_type: costmap
   static_map: true
   map_topic: /nav_map
+  
+  observation_sources: front_laser back_laser
+  back_laser: {sensor_frame: /back_laser, data_type: LaserScan, topic: /base_scan, marking: true, clearing: true}
+  front_laser: {sensor_frame: /front_laser, data_type: LaserScan, topic: /base_scan, marking: true, clearing: true}

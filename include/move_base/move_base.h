@@ -118,6 +118,7 @@ private:
     pluginlib::ClassLoader<nav_core::BaseLocalPlanner> blp_loader_;
 
     costmap_2d::Costmap2DROS* global_costmap_;
+
     // from now on we will only use the global costmap
     //costmap_2d::Costmap2DROS* local_costmap_;
 };

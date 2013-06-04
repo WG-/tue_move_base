@@ -1,0 +1,7 @@
+static_costmap:
+  map_type: costmap
+  static_map: true
+  map_topic: /nav_map
+  
+  observation_sources: fake_laser
+  fake_laser: {sensor_frame: /front_laser, data_type: LaserScan, topic: /base_scan, marking: false, clearing: false}

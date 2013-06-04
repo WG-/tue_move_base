@@ -2,23 +2,36 @@
 
 <launch>
 
-    <arg if="$(optenv ROBOT_REAL false)" name="machine" default="amigo4"/>
-    <arg unless="$(optenv ROBOT_REAL false)" name="machine" default="localhost"/>
-    <include file="$(find amigo_machine_files)/machines/$(arg machine).machine" /> 
+    <arg name="machine" value="$(optenv MACHINE_BASE_NAVIGATION localhost)"/>
+    <include file="$(find amigo_machine_files)/machines/$(arg machine).machine" />
+    <arg name="ROBOT_REAL" default="$(optenv ROBOT_REAL false)" />
+    <arg name="gmapping" default="false"/>    <!-- default localization is amcl, if set to true: gmapping -->
+    <arg name="env" default="$(optenv ROBOT_ENV robotics_testlab_A)" />
+
+    <arg name="gdb" default="false"/>
+    <arg if="$(arg gdb)" name="launch-prefix" value="gdb -ex run --args"/>
+    <arg unless="$(arg gdb)" name="launch-prefix" value=""/>
     
-    <node pkg="tue_move_base" type="move_base" respawn="true" name="move_base" output="screen" machine="$(arg machine)">
+    <!-- map server should not be started if we are using gmapping -->
+    <group unless="$(arg gmapping)">
+        <node name="nav_map_server" pkg="map_server" type="map_server" args="$(find amigo_maps)/maps/$(arg env)/nav/yaml" output="screen" machine="$(arg machine)"> 
+            <remap from="/map" to="/nav_map"/> 
+        </node> 
+    </group>
+
+    <node pkg="tue_move_base" type="move_base" respawn="true" name="move_base" output="screen" machine="$(arg machine)" launch-prefix="$(arg launch-prefix)">
         <!-- local and global planner parameters -->        
         <rosparam file="$(find tue_move_base)/parameters/move_base.yaml" command="load" />
 
         <!-- Common costmap parameters -->        
         <rosparam file="$(find tue_move_base)/parameters/costmap_common_params.yaml" command="load" ns="global_costmap" />
-        <!-- <rosparam file="$(find tue_move_base)/parameters/costmap_common_params.yaml" command="load" ns="local_costmap" /> --> 
+        <rosparam file="$(find tue_move_base)/parameters/costmap_common_params.yaml" command="load" ns="static_costmap" /> 
 
         <!-- Global costmap settings -->
         <rosparam file="$(find tue_move_base)/parameters/costmap_global_params.yaml" command="load" />
 
-        <!-- Local costmap settings -->
-        <!-- <rosparam file="$(find tue_move_base)/parameters/costmap_local_params.yaml" command="load" /> -->
+        <!-- Static costmap settings -->
+        <rosparam file="$(find tue_move_base)/parameters/costmap_static_params.yaml" command="load" />
         
     </node>
 
