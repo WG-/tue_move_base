@@ -119,6 +119,8 @@ private:
 
     costmap_2d::Costmap2DROS* global_costmap_;
 
+    costmap_2d::Costmap2DROS* static_costmap_;
+
     // from now on we will only use the global costmap
     //costmap_2d::Costmap2DROS* local_costmap_;
 };

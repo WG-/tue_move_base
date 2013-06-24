@@ -78,6 +78,13 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
     //local_costmap_->pause();
 
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     *                     	STATIC COSTMAP
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    static_costmap_ = new costmap_2d::Costmap2DROS("static_costmap", tf_);
+    static_costmap_->pause();
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
      *                     	GLOBAL PLANNER
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -143,6 +150,7 @@ MoveBase::MoveBase(std::string name, tf::TransformListener& tf) :
     // Start actively updating costmaps based on sensor data
     // local_costmap_->start();
     global_costmap_->start();
+    static_costmap_->start();
 
     //advertise a service for getting a plan
     make_plan_srv_ = private_nh.advertiseService("get_plan", &MoveBase::planService, this);
@@ -228,8 +236,11 @@ void MoveBase::preemtCallback() {
 
 bool MoveBase::queryCostmapPointService(tue_costmap_msgs::PointQuery::Request& req, tue_costmap_msgs::PointQuery::Response& resp) {
 
-    costmap_2d::Costmap2D costmap;
-    global_costmap_->getCostmapCopy(costmap);
+    costmap_2d::Costmap2D global_costmap_copy;
+    global_costmap_->getCostmapCopy(global_costmap_copy);
+
+    costmap_2d::Costmap2D static_costmap_copy;
+    static_costmap_->getCostmapCopy(static_costmap_copy);
 
     for(vector<geometry_msgs::PointStamped>::const_iterator it_point = req.points.begin(); it_point != req.points.end(); ++it_point) {
         tf::Stamped<tf::Point> point;
@@ -243,11 +254,11 @@ bool MoveBase::queryCostmapPointService(tue_costmap_msgs::PointQuery::Request& r
         unsigned char cost;
 
         // set the cost to -1 if the transform is out of bounds of the map
-        if (costmap.worldToMap(point_GLOBAL.getX(), point_GLOBAL.getY(), mx, my)) {}
+        if (global_costmap_copy.worldToMap(point_GLOBAL.getX(), point_GLOBAL.getY(), mx, my)) {}
         else {
             cost = -1;
         }
-        cost = costmap.getCost(mx, my);
+        cost = max(global_costmap_copy.getCost(mx, my), static_costmap_copy.getCost(mx, my));
 
         tue_costmap_msgs::PointInfo point_info;
         point_info.point = *it_point;
@@ -255,9 +266,9 @@ bool MoveBase::queryCostmapPointService(tue_costmap_msgs::PointQuery::Request& r
         // todo: better distance representation
         point_info.distance_to_closest_obstacle = 1 - (double)cost / 255;
         point_info.cost = (double)cost;
-        point_info.resolution = costmap.getResolution();
-        point_info.size_cells_x = costmap.getSizeInCellsX();
-        point_info.size_cells_y = costmap.getSizeInCellsY();
+        point_info.resolution = global_costmap_copy.getResolution();
+        point_info.size_cells_x = global_costmap_copy.getSizeInCellsX();
+        point_info.size_cells_y = global_costmap_copy.getSizeInCellsY();
         resp.points_info.push_back(point_info);
     }
 
